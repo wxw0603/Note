@@ -54,13 +54,15 @@ ApplicationContext：BeanFactoy接口的子接口，提供了更多功能，面�
 
 ### 源码分析
 
-#### BeanFactory类
+#### BeanFactory接口
 
 主要承诺了获取Bean的多个重载方法，是否包含Bean的方法，等等
 
+##### HierarchicalBeanFactory接口
 
+定义了层次获取Bean层次的方法
 
-#### ListableBeanFactory类
+##### ListableBeanFactory接口
 
 
 

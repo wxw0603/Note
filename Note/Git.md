@@ -55,3 +55,47 @@
 | ----------------------- | ------- |
 | ssh -t 加密算法 -C 描述 | 创建ssh |
 |                         |         |
+
+## 常规的git忽略文件
+
+git.ignore放在家目录下
+
+```xml
+#Compiled class file
+*.class
+
+#Log file
+
+*.log
+
+# BlueJ files
+*.ctxt
+
+#Mobile Tools for Java(J2ME)
+.mtj.tmp/
+
+#Package Files #
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+.classpath
+.project
+.settings
+target
+.idea
+*.iml
+```
+
+在gitconfig中配置
+
+```xml
+[core]
+	excludesfile = C:/  绝对路径
+```
+
+## GitLab(请先观看Linux再看)
