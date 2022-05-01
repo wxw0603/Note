@@ -1489,3 +1489,49 @@ public interface A{
 }
 ```
 
+### 默认方法冲突
+
+1、超类优先，接口覆盖
+
+2、如果实现了两个含有相同默认方法的接口，需要在实现类中进行选择
+
+```java
+package com.pojo;
+
+public class Pojo implements son,Father{
+    public void pr(){
+        son.super.pr();
+        Father.super.pr();
+    }
+}
+```
+
+### 回调
+
+```java
+public static void main(String[] args) {
+    Timer t = new Timer(1000,new Ha());
+    t.start();//开启一个线程，
+    while(true);
+}
+```
+
+监听事件，做出动作
+
+### Comparator接口
+
+1、Arrays中的sort方法可以接受Object类型的数组，但是必须要求该数组元素实现Comparable接口
+
+2、Arrays中的sort方法还可以接受一个数组和一个比较器，比较器是一个实现了Comparator的实例
+
+### 对象克隆
+
+Cloneable接口
+
+clone()方法在Object上，但是是protect(受保护的)，在重写的时候需要标记为public
+
+需要注意子类克隆的问题
+
+浅克隆：克隆每个字段，对象字段为引用
+
+深克隆克隆每个字段，对象字段通过对应克隆字段克隆
