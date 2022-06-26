@@ -895,6 +895,23 @@ javadoc 实用工具从下面几项中抽取信息:
 
 放在import之前
 
+```java
+/**
+ * @projectName（项目名称）: project_name
+ * @package（包）: package_name.file_name
+ * @className（类名称）: type_name
+ * @description（类描述）: 一句话描述该类的功能
+ * @author（创建人）: user 
+ * @createDate（创建时间）: datetime  
+ * @updateUser（修改人）: user 
+ * @updateDate（修改时间）: datetime
+ * @updateRemark（修改备注）: 说明本次修改内容
+ * @version（版本）: v1.0
+ */
+```
+
+
+
 #### 方法注释
 
 在方法之前

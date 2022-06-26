@@ -5,13 +5,13 @@
 ```xml
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE configuration
-	PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
-	"http://mybatis.org/dtd/mybatis-3-config.dtd">
+        PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-config.dtd">
 
-<configuration default="development">
+<configuration>
     <!--配置连接数据库的环境-->
-	<environments id="development">
-        <environment>
+    <environments  default="development">
+        <environment id="development">
             <transactionManager type="JDBC"/><!-- JDBC使用原生事务管理，MANAGED表示被接管 -->
             <dataSource type="POOLED"><!-- 数据源类型，POOLED使用数据库连接池/UNPOOLED不使用/JNDI使用上下文中数据源 -->
                 <property name="driver" value=""/>
