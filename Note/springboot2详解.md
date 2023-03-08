@@ -419,6 +419,7 @@ spring:
 ```java
 @Data
 public class Book {
+    @TableId(type = IdType.AUTO)//表示id字段为自增
     private Integer id;
     private String type;
     private String name;
@@ -554,40 +555,49 @@ public class BookServiceImpl extends ServiceImpl<BookDao,Book> implements BookSe
 使用rest风格开发
 
 ```java
+package com.springbootproject_book.controller;
+
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.springbootproject_book.entity.Book;
+import com.springbootproject_book.service.BookService;
+import com.springbootproject_book.util.R;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+
 @RestController
 @RequestMapping("/books")
 public class BookController {
-
     @Autowired
     private BookService bookService;
 
     @GetMapping
-    public List<Book> getALL(){
-        return bookService.list();
+    public R getALL(){
+        return new R(true,bookService.list());
     }
     @PostMapping
-	//使用请求体参数
-    public Boolean save(@RequestBody Book book){
-        return bookService.save(book);
+    public R save(@RequestBody Book book){
+        return new R(bookService.save(book));
     }
     @PutMapping
-	//使用请求体参数
-    public Boolean update(@RequestBody Book book){
-        return bookService.update(book,null);
+    public R update(@RequestBody Book book){
+        return new R(bookService.updateById(book));
     }
-    @DeleteMapping("{id}")//参数路径
-    public Boolean delete(@PathVariable int id){
-        return bookService.removeById(id);
+    @DeleteMapping("{id}")
+    public R delete(@PathVariable int id){
+        return new R(bookService.removeById(id));
     }
     @GetMapping("{id}")//参数路径
-    public  Book getById(@PathVariable int id){
-        return bookService.getById(id);
+    public  R getById(@PathVariable int id){
+        return new R(true,bookService.getById(id));
     }
+
     @GetMapping("{currentPage}/{pageSize}")
-    public IPage<Book> getPage(@PathVariable int currentPage,@PathVariable int pageSize){
-        return bookService.getPage(currentPage,pageSize);
+    public R getPage(@PathVariable int currentPage,@PathVariable int pageSize){
+        return new R(true,bookService.getPage(currentPage,pageSize));
     }
 }
+
 ```
 
 #### 表现层数据一致性处理
@@ -651,3 +661,429 @@ public class BookController {
 }
 ```
 
+#### 前后端协议联调（vue相关）
+
+不太懂以后再看
+
+```js
+//钩子函数，VUE对象初始化完成后自动执行
+created() {
+    this.getAll();
+},
+
+    methods: {
+        //列表
+        getAll() {
+            console.log("1");
+            axios.get("/books").then((res)=>{//发送异步请求
+                console.log(res.data);
+            });
+        },
+```
+
+#### 前端列表数据处理 
+
+```js
+getAll() {
+    console.log("1");
+    axios.get("/books").then((res)=>{
+        console.log(res.data);
+        this.dataList=res.data.data;
+    });
+},
+```
+
+#### 前端删除处理
+
+```js
+// 删除
+handleDelete(row) {
+
+    this.$confirm("此操作将永远删除当前信息，是否继续？","警告",{type:"info"}).then(()=>{
+        axios.delete("/books/"+row.id).then((res)=>{
+            if(res.data.flag){
+                this.$message.success("删除成功");
+            }
+            else{
+                this.$message.error("删除失败");
+            }
+        }).finally((res)=>{
+            this.getAll();
+        }).catch(()=>{
+        });
+    });
+},
+```
+
+#### 前端修改处理
+
+```js
+
+```
+
+#### 异常消息处理
+
+要求统一后端异常信息，使用spring提供的异常处理器
+
+```java
+//作为springmvc的异常处理器
+@ControllerAdvice
+public class ExceptionAdvice {
+    @ExceptionHandler(IOException.class)//处理的异常类型
+    public R doException(Exception e){
+        e.printStackTrace();
+        return new R(false,"服务器故障");
+    }
+}
+```
+
+这样可以将所有信息都放在后台管理，方便做国际化
+
+#### 条件查询
+
+```java
+@Override
+public IPage<Book> getPage(int currentPage, int pageSize,Book book) {
+    LambdaQueryWrapper<Book> wrapper = new LambdaQueryWrapper();
+    wrapper.like(Strings.isNotEmpty(book.getDescription()),Book::getDescription,book.getDescription());
+    wrapper.like(Strings.isNotEmpty(book.getType()),Book::getType,book.getType());
+    wrapper.like(Strings.isNotEmpty(book.getName()),Book::getName,book.getName());
+    IPage<Book> page = new Page<>(currentPage,pageSize);
+    bookDao.selectPage(page,wrapper);
+    return page;
+}
+```
+
+```js
+//列表
+getAll() {
+    var param = "?type="+this.pagination.type;
+    param+="&desc="+this.pagination.desc;
+    param+="&name="+this.pagination.name;
+    axios.get("/books/"+this.pagination.currentPage+"/"+this.pagination.pageSize+param).then((res)=>{
+        this.dataList=res.data.data.records;
+        this.pagination.currentPage =res.data.data.current;
+        this.pagination.total = res.data.data.total;
+    });
+},
+```
+
+# 运维
+
+## 打包与运行
+
+使用打包插件
+
+## 配置高级
+
+#### 临时属性配置
+
+用于在服务器上，临时更改配置，配置和properties的配置相同
+
+使用cmd或linux命令行
+
+```xml
+java -jar 项目.jar --server.port=8080 //修改端口
+java -jar 项目.jar --server.port=8080 --spring.datasource.druid.password=000000//同时配置两个属性
+```
+
+#### 配置文件四级分类
+
+卑微程序员：classpath:/yaml
+
+经理：classpath:config/yaml
+
+运维：file:jar包同级目录下yaml
+
+运维组长：file:jar包同级目录下config/yaml
+
+#### 自定义配置文件
+
+使用命令行参数修改配置文件--spring.config.name=配置文件名
+
+或者使用命令行参数修改配置文件--spring.config.location=配置文件路径
+
+#### 多环境开发
+
+###### yaml版
+
+```yaml
+spring:
+  profiles:
+    active: pro
+
+---
+#生产环境
+
+#Tomcat配置
+server:
+  port: 80
+#Mybatis-plus配置
+spring:
+  datasource:
+    druid:
+      username: root
+      password: wxw0603
+      url: jdbc:mysql://localhost:3306/bookmanager
+      driver-class-name: com.mysql.cj.jdbc.Driver
+  profiles: pro
+
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+---
+#开发环境
+
+spring:
+  profiles: dev
+server:
+  port: 81
+
+---
+#测试环境
+
+spring:
+  profiles: test
+server:
+  port: 82
+```
+
+###### yaml多文件版
+
+使用多个配置文件，主配置文件中指定环境和通用配置，环境配置文件名为application-环境命名.yml
+
+###### properties多文件版
+
+和yaml多文件版几乎一样，只有文件名的差别
+
+###### 多环境分组管理
+
+对一个环境配置文件，根据功能将其中信息拆分到多个配置文件中
+
+例如：
+
+application-devDB.yml
+
+application-devRedis.yml
+
+application-devMVC.yml
+
+```yml
+spring:
+ profiles:
+  active: dev
+  group:
+   "dev": devDB,devMVC
+   "pro": proDB,proMVC
+```
+
+其中后加载覆盖先加载
+
+###### springboot依赖maven配置
+
+maven内容：
+
+```html
+<profiles>
+    <profile>
+        <id>pro_env</id>
+        <properties>
+            <profiles.active>pro</profiles.active>
+        </properties>
+        <activation>
+            <activeByDefault>true</activeByDefault>
+        </activation>
+    </profile>
+    <profile>
+        <id>dev_env</id>
+        <properties>
+            <profiles.active>dev</profiles.active>
+        </properties>
+        <activation>
+            <activeByDefault>true</activeByDefault>
+        </activation>
+    </profile>
+</profiles>
+```
+
+yaml内容：
+
+```yaml
+spring:
+ profiles:
+  active: @profiles.active@
+  group:
+   "dev": devDB,devMVC
+   "pro": proDB,proMVC
+```
+
+## 日志
+
+#### 日志基础
+
+作用：
+
+1、编程器调试代码
+
+2、运营期记录信息
+
+```java
+private static final Logger log = LoggerFactory.getLogger(BookController.class);
+
+@GetMapping("/test")
+public String test(){
+    log.error("error...");
+    return "error...";
+}
+```
+
+
+
+日志四个级别：由低到高
+
+debug（调试）
+
+info（提示）
+
+warn（警告）
+
+error（错误）
+
+
+
+默认springboot只显示debug以上的信息，如果要显示debug信息，可以使用命令行参数--debug或者在配置文件中加入debug：true，或者如下
+
+```yaml
+logging:
+  level: debug
+```
+
+还可以：
+
+```yaml
+logging:
+  #设置分组
+  group:
+    ebank: com.baomidou
+    wxw: com.mysql
+
+  level:
+  #根目录日志级别
+    root: debug
+  #我的目录日志级别
+    wxw: info
+```
+
+#### 基于lombok的快速日志开发
+
+使用Lombok的slf4j注解就可以创建logger对象，对象名为log，可以直接使用
+
+```java
+@Slf4j
+@RestController
+@RequestMapping("/books")
+public class BookController {
+    @Autowired
+    private BookService bookService;
+
+    @GetMapping("/test")
+    public String test(){
+        log.error("error...");
+        return "error...";
+    }
+```
+
+#### 日志输出格式控制
+
+```java
+2022-07-20 12:40:00.763  INFO 9300 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port(s): 80 (http)
+//时间 级别 pid（所处进程） 所属线程 所属类/接口名 日志信息 
+```
+
+格式更改：
+
+```yaml
+logging:
+  pattern:
+    console: "%d %clr(%5p) %t %clr(%-40.40c){cyan} %m%n"
+    #       日期   级别    线程        类名           信息 换行
+    #       5表示占五个字符,%clr用来控制颜色，%p表示级别
+    #       -40.40表示左对齐，占40个字符删除左侧多余字符，{cyan}表示显示颜色位青色,%c为类名
+```
+
+#### 文件记录日志
+
+```yaml
+logging:
+  file:
+    #初始日志文件名
+    name: server.log
+  logback:
+    #开启滚动日志，防止日志文件过大
+    rollingpolicy:
+      #每个日志文件最大大小
+      max-file-size: 2KB
+      #每个日志文件命名格式，server-日期-当前日期下第几个文件.log
+      file-name-pattern: server-%d-%i.log
+```
+
+# 开发实用
+
+## 热部署
+
+热部署就是在项目运行过程中，如果发生修改，程序会自动重新更新的技术，方便开发
+
+导入开发者工具坐标
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-web</artifactId>
+</dependency>
+```
+
+#### 手动热部署
+
+更改项目后点击构建来重新部署。
+
+#### 自动热部署
+
+在IDEA设置中的构建-编译器-自动构建项目
+
+打勾即可开启
+
+还要启动在项目运行中允许remake的选项，这个示版本而改动
+
+我的建议是，用手动好一点（‘ — ’）
+
+#### 热部署范围配置
+
+```yaml
+spring:  
+  devtools:
+    restart:
+      exclude: static/**
+```
+
+#### 热部署功能关闭
+
+```yaml
+spring:
+  devtools:
+    remote:
+      restart:
+        enabled: false
+```
+
+
+
+## 配置高级
+
+## 测试
+
+## 数据层解决方案
+
+## 整合第三方技术
+
+## 监控

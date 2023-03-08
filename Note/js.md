@@ -1,5 +1,9 @@
 # JS
 
+## DOM文档对象模型
+
+
+
 ## AJAX
 
 AJAX是基于现有的Internet标准，并且联合使用它们：

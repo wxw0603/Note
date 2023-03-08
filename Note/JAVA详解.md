@@ -62,8 +62,8 @@ char表示单个字符也可用Unicode字符描述
 | \t       | 制表   | \u0009    |
 | \n       | 换行   | \u000a    |
 | \r       | 回车   | \u000d    |
-| \ '      | 单引号 | \u0022    |
-| \ "      | 双引号 | \u0027    |
+| \ ''     | 单引号 | \u0022    |
+| \ '      | 双引号 | \u0027    |
 | \ \      | 反斜杠 | \u005c    |
 
 #### 局部类型
@@ -313,7 +313,7 @@ int i = "".offsetByCodePoints(0,i);
 "".codePointAt(i);
 ```
 
-如何精准便利字符串
+如何精准遍历字符串	
 
 ```java
 public static void main(String[] args) {
@@ -1552,3 +1552,149 @@ clone()方法在Object上，但是是protect(受保护的)，在重写的时候�
 浅克隆：克隆每个字段，对象字段为引用
 
 深克隆克隆每个字段，对象字段通过对应克隆字段克隆
+
+### 函数式接口
+
+应用广泛，一个只有一个抽象方法的接口，可以使用lambda表达式来创建实现。
+
+像消费式接口consumer等等
+
+### 方法引用
+
+```java
+System.out::println//表示用这个方法覆盖接口的抽象方法，方法参数可能就是输入值
+1、object::instanceMethod  System.out::println==x->System.out.println(x)
+2、Class::instanceMethod String::equals==(x,y)->x.equals(y)
+3、Class::staticMethod Math::pow==(x,y)->Math.pow(x,y)
+```
+
+### 构造器引用
+
+```java
+Class::new
+Person::new==x->new Person(x)
+```
+
+#### 细节：
+
+lambda表达式中不能出现可以改变的自由变量，因为高并发下会不安全
+
+lambda表达式的体与嵌套块有相同作用域，声明一个与局部变量同名的参数或局部变量是不合法的
+
+this在lambda表达式中是指创建这个表达式的方法的this参数
+
+### 内部类的特殊语法规则
+
+内部类可以访问外部类的字段属性，原因是默认编译器会为内部类生成构造器，外部类的引用会在构造器中设置
+
+```java
+public class Main {
+    public static void main(String[] args) {
+        A a = new A();
+        A.B b = a.new B();//根据a创建一个内部类b对象，b隐式的指向a
+    }
+}
+
+class A {
+
+    public int i =1;
+
+    public B b = this.new B();
+    public class B{
+        public void a(){
+            System.out.println(A.this.i);
+        }
+    }
+}
+```
+
+### 局部内部类
+
+在方法中可以创建局部类，局部类没有访问说明符，即public或者private
+
+实际上在方法只需结束后，如果局部类还被使用并且访问了局部变量，那么局部变量将被捕获变为局部类的内部变量
+
+### 匿名内部类
+
+用于new对象的时候，实现接口或者拓展类
+
+### 静态内部类
+
+单纯的想隐藏这个类
+
+### 服务加载器
+
+涉及到的时候再来看吧，貌似是完全没接触到过的知识
+
+### 代理（AOP的实现原理）
+
+利用代理可以在运行时创建实现了一组给定接口的新类
+
+利用反射可以动态创建对象，但是不能够动态的创建接口的实现，为了更好的实现这个功能，提出了代理类
+
+代理类可以在运行时创建全新的类，具体的，代理类包含以下方法：
+
+1、指定接口所需要的全部方法
+
+2、Obejct类中的全部方法
+
+### 创建代理
+
+```java
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+import java.util.Arrays;
+
+/**
+ * 动态创建一个实现了Comparable接口的对象数组
+ * 运行结果:
+ * 原本对象的值为1,调用compareTo方法后输入参数为1
+ * 返回值为0
+ *
+ * 进程已结束,退出代码0
+ */
+public class ProxyTest {
+    public static void main(String[] args) {
+        var elements = new Object[1000];
+
+        for(var i = 0 ; i<elements.length;i++){
+            Integer value = i+1;
+            //对Integer进行代理
+            var handler = new TraceHandler(value);
+            //三个参数分别是一个类加载器、一个Class数组对象，每个元素对应需要实现的各个接口、一个调用处理器
+            Object proxy = Proxy.newProxyInstance(ClassLoader.getSystemClassLoader(),
+                                                  new Class[]{Comparable.class},handler);
+            elements[i]=proxy;
+        }
+
+        Comparable c = (Comparable) elements[0];
+        System.out.println("返回值为"+c.compareTo(1));//因为没有提供method所以输出为0
+    }
+
+}
+class TraceHandler implements InvocationHandler{
+    private Object target;//表示要实现的接口或要拓展的类
+
+    public TraceHandler(Object t){
+        target=t;
+    }
+
+
+    //此处method可以自定义
+    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+
+        System.out.print("原本对象的值为"+target+",");
+        System.out.print("调用"+method.getName()+"方法后");
+        if(args!=null){
+            for(var i = 0; i < args.length ; i++){
+                System.out.print("输入参数为"+args[i]);
+            }
+            System.out.println();
+        }
+        return method.invoke(target,args);//方法调用
+    }
+}
+
+```
+
