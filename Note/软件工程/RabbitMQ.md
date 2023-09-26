@@ -2116,5 +2116,223 @@ public class WarningConsumer {
 
 redis原子性：利用redis执行setnx命令，天然具有幂等性，从而实现不重复消费。
 
+## 优先级队列
+
+使用场景：在我们系统中会用到一个订单催付功能，我们的客户在天猫下的订单，淘宝会及时将订单推送给我们，如果在用户设定的时间内未付款那么就会给用户推送一条短信提醒，并且要求苹果小米这样的大商家的订单需要优先处理，而我们后台系统使用的是用redis来存放的定时轮询，redis只能用List做一个简单的消息队列，不能实现优先级场景。
+
+所以订单量大了后采用RabbitMQ进行改造和优化，如果发现是大客户的订单给一个相对较高的优先级，否则就是默认优先级。
+
+队列对其进行排序。
+
+对消息设置优先级，优先级范围是0~255，越大越优先，然后排队，优先级高的先被消费。
+
+### 配置
+
+在新建队列的是时候加入x-max-priority参数，设置最大优先级，范围0~255，然后就可以在发送消息的同时，携带优先级。
+
+注意这边需要先启动生产者，生产多条消息之后再开启消费者，模仿高并发情况。
+
+### 生产者
+
+```java
+package Nine;
+
+import com.rabbitmq.client.AMQP;
+import com.rabbitmq.client.Channel;
+import tools.RabbitMQUtils;
+import java.util.HashMap;
+import java.util.Scanner;
+
+/**
+ * 优先级队列生产者
+ *
+ * 测试用例:
+ * A 1
+ * B 6
+ * C 4
+ * D 2
+ * E 5
+ * F 3
+ * 运行结果：
+ * 消费者接收到消息B
+ * 消费者接收到消息E
+ * 消费者接收到消息C
+ * 消费者接收到消息F
+ * 消费者接收到消息D
+ * 消费者接收到消息A
+ */
+public class Producer {
+    //队列名
+    public static final String FIRST_QUEUE = "first.queue";
+
+
+    public static void main(String[] args) throws Exception {
+        Channel channel = RabbitMQUtils.getChannel();
+
+        HashMap<String,Object> map = new HashMap<>();
+        map.put("x-max-priority",10);//设置最大优先级为10，不要过大，浪费CPU内存
+
+        channel.queueDeclare(FIRST_QUEUE,false,false,false,map);
+
+        Scanner sc = new Scanner(System.in);
+        while(sc.hasNext()){
+            String message = sc.next();
+            int priority = sc.nextInt();
+            //设置优先级参数
+            AMQP.BasicProperties properties = new AMQP.BasicProperties().builder().priority(priority).build();
+            channel.basicPublish("",FIRST_QUEUE,properties,message.getBytes("UTF-8"));
+        }
+    }
+}
+```
+
+## 惰性队列
+
+指消息保存在内存中还是在磁盘上，正常情况下，消息是保存在内存中的，但是在惰性队列，消息保存在磁盘中。
+
+应用场景：消费者宕机，而MQ持续接收消息，积压了100万条，这个时候将消息转存到磁盘，而不是停留在内存。
+
+```java
+map.put("x-queue-mode","lazy");//在声明队列时加入参数
+```
+
+
+
 # 集群部分
+
+## 克隆
+
+对虚拟机克隆，这样就不用再新建配置了，嗨嗨嗨，三台虚拟机就够了。
+
+## 搭建集群
+
+启动三台虚拟机我的三台虚拟机的虚拟网络分别是192.168.204.134、133、135其中将134作为一号节点
+
+1、修改三台机器的主机名称
+
+vim /etc/hostname
+
+改为node1、2、3，133是2号
+
+重启加载名称
+
+2、配置host文件，让各个节点能够根据域名互相访问
+
+vim /etc/hosts
+
+```properties
+192.168.204.134 node1
+192.168.204.133 node2
+192.168.204.135 node3
+```
+
+3、确保各个节点的cookie文件使用的是同一个值
+
+在主机1使用远程复制命令，将主机1的cookie文件复制到2和3
+
+```shell
+scp /var/lib/rabbitmq/.erlang.cookie root@node2:/var/lib/rabbitmq/.erlang.cookie
+
+scp /var/lib/rabbitmq/.erlang.cookie root@node3:/var/lib/rabbitmq/.erlang.cookie
+```
+
+4、在三台虚拟机上重启RabbitMQ服务，Erlang虚拟机和RabbitMQ应用服务
+
+rabbitmq-server -detached
+
+5、开启node1,node2的4369和25672端口
+
+6、在2、3号机上执行如下代码
+
+rabbitmqctl stop_app	(rabbitmqctl stop 会将erlang虚拟机关闭，rabbitmqctl stop只关闭Rabbitmq服务)
+
+rabbitmqctl reset
+
+rabbitmqctl join_cluster rabbit@node1
+
+rabbitmqctl start_app
+
+三号节点加给二号
+
+7、集群状态
+
+rabbitmqctl cluster_status
+
+8、重新注册
+
+三台机器都需要注册一遍，命令看上面
+
+登录就能看到集群
+
+9、如何解除集群
+
+rabbitmqctl stop_app
+
+rabbitmqctl reset
+
+rabbitmqctl start_app
+
+rabbitmqctl forget_cluster_node rabbit@node2(node1上执行)
+
+## 镜像队列
+
+上述搭建的镜像不可复用，因为node1上的队列不会保存到node2，如果node1宕机，队列中的消息即丢失
+
+可以通过rabbitmqctl stop_app让node1人工宕机
+
+搭建镜像队列也就是备份
+
+搭建过程
+
+在图形化界面的admin中，点击策略policies
+
+![捕获8](C:\Users\wxw\Desktop\学习\Note\images\捕获8.PNG)
+
+|             |                                        |
+| ----------: | -------------------------------------- |
+|       Name: | 名字，随便起                           |
+|    Pattern: | 规则，正则表达式，什么样的队列需要镜像 |
+|   Apply to: | 应用范围                               |
+|   Priority: |                                        |
+| Definition: | 参数                                   |
+
+就可以实现队列备份，其中参数中的备份数量，是算上自己的数量
+
+如果其中一台宕机，会保持消息备份的数量，如果node1宕机，会自动多备份一份到node3
+
+## 高可用的负载均衡
+
+直接访问node1或者23，会发现就是只能连接其中一个节点，当节点发生宕机，就无法连接另一个，也就是无法自动变更ip的问题，可以基于nginx实现反向代理和负载均衡或者其他的负载均衡软件，还有keepalived软件保证高可用性
+
+## FederationExchange联邦交换机
+
+如果有一台北京的broker和一台深圳的broker，最好就是北京的用户去访问北京的，深圳的用户访问深圳的服务器。而两台服务器之间相互访问有较大延迟。就设计到了数据一致性问题，北京的数据要同步到深圳，深圳的数据同步到北京，来保证用户能访问到所有数据。
+
+搭建步骤：
+
+1、需要保证每台节点单独运行
+
+2、在每台机器上开启federation相关插件
+
+rabbitmq-plugins enable rabbitmq_federation
+
+rabbitmq-plugins enable rabbitmq_federation_management
+
+3、先在下游节点创建联邦队列
+
+4、在下游节点中配置上游节点
+
+5、添加policy策略
+
+剩下的活请交给运维
+
+## shovel
+
+将源的消息持续转发给目标，就是复制转发消息的插件，用来同步数据
+
+rabbitmq-plugins enable rabbitmq_shovel
+
+rabbitmq-plugins enable rabbit_shovel_management
+
+
 

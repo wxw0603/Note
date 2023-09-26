@@ -98,4 +98,3 @@ target
 	excludesfile = C:/  绝对路径
 ```
 
-## GitLab(请先观看Linux再看)

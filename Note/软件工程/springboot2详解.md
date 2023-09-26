@@ -356,7 +356,7 @@ public interface UserDao {
 <!-- https://mvnrepository.com/artifact/com.baomidou/mybatis-plus-boot-starter -->
 <dependency>
     <groupId>com.baomidou</groupId>
-    <artifactId>mybatis-p lus-boot-starter</artifactId>
+    <artifactId>mybatis-plus-boot-starter</artifactId>
     <version>3.5.2</version>
 </dependency>
 
